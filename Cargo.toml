@@ -1,0 +1,6 @@
+[package]
+name = "a-crows-commute"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
