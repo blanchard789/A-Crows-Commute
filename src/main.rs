@@ -50,11 +50,29 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Sprite::from_image(asset_server.load("crowGame_crow.png")),
         Transform {
-            translation: Vec3::new(0., 0., 1.),
+            translation: Vec3::new(0., 0., 2.),
             scale: Vec3::new(1.0, 1.0, 1.0),
             ..Default::default()
         },
         Name::new("Crow"),
+    ));
+    commands.spawn((
+        Sprite::from_image(asset_server.load("crowGame_hawk.png")),
+        Transform {
+            translation: Vec3::new(-200., 0., 3.),
+            scale: Vec3::new(1.0, 1.0, 1.0),
+            ..Default::default()
+        },
+        Name::new("Hawk"),
+    ));
+    commands.spawn((
+        Sprite::from_image(asset_server.load("crowGame_food.png")),
+        Transform {
+            translation: Vec3::new(200., 0., 1.),
+            scale: Vec3::new(1.0, 1.0, 1.0),
+            ..Default::default()
+        },
+        Name::new("Worm"),
     ));
 }
 
