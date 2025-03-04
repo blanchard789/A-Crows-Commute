@@ -4,6 +4,7 @@ use bevy::{
     window::{PresentMode, Window, WindowPlugin, WindowTheme},
 };
 
+/// Initializes window settings and starts the game loop
 fn main() {
     App::new()
         .add_plugins((
@@ -29,11 +30,12 @@ fn main() {
             //FrameTimeDiagnosticsPlugin::default(),
         ))
         .add_systems(Startup, setup)
+        .add_systems(Update, movement)
         .run();
 }
 
-/// Initializes spawn settings for game sprites.
-/// Such as location and scale
+/// Initializes spawn settings for game sprites,  
+/// such as location and scale
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     commands.spawn((
@@ -43,6 +45,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             scale: Vec3::new(1.0, 1.0, 1.0),
             ..Default::default()
         },
+        Name::new("Background"),
     ));
     commands.spawn((
         Sprite::from_image(asset_server.load("crowGame_crow.png")),
@@ -51,5 +54,41 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             scale: Vec3::new(1.0, 1.0, 1.0),
             ..Default::default()
         },
+        Name::new("Crow"),
     ));
+}
+
+/// Handles player movement key inputs  
+/// and transforms the crow to move in the requested direction
+fn movement(input: Res<ButtonInput<KeyCode>>, mut query: Query<(&Name, &mut Transform)>) {
+    for (name, mut transform) in query.iter_mut() {
+        if name.as_str() == "Crow" {
+            if input.pressed(KeyCode::KeyW) || input.pressed(KeyCode::ArrowUp) {
+                transform.rotation = Quat::from_rotation_z(0.0_f32.to_radians());
+                transform.translation.y += 1.
+            } else if input.pressed(KeyCode::KeyA) || input.pressed(KeyCode::ArrowLeft) {
+                transform.rotation = Quat::from_rotation_z(90.0_f32.to_radians());
+                transform.translation.x -= 1.
+            } else if input.pressed(KeyCode::KeyD) || input.pressed(KeyCode::ArrowRight) {
+                transform.rotation = Quat::from_rotation_z(270.0_f32.to_radians());
+                transform.translation.x += 1.
+            } else if input.pressed(KeyCode::KeyS) || input.pressed(KeyCode::ArrowDown) {
+                transform.rotation = Quat::from_rotation_z(180.0_f32.to_radians());
+                transform.translation.y -= 1.
+            }
+
+            if transform.translation.y > ((1070.0 - 100.0) / 2.0) {
+                transform.translation.y = (1069.0 - 100.0) / 2.0
+            }
+            if transform.translation.y < ((-1070.0 + 100.0) / 2.0) {
+                transform.translation.y = (-1069.0 + 100.0) / 2.0
+            }
+            if transform.translation.x > ((1910.0 - 100.0) / 2.0) {
+                transform.translation.x = (1909.0 - 100.0) / 2.0
+            }
+            if transform.translation.x < ((-1910.0 + 100.0) / 2.0) {
+                transform.translation.x = (-1909.0 + 100.0) / 2.0
+            }
+        }
+    }
 }
