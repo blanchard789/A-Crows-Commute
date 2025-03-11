@@ -37,9 +37,32 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, movement)
         .add_systems(Update, collision)
+        //.add_systems(Update, despawn_entity)
+        //.add_systems(Update, place_worm)
+        .add_systems(Update, chase_player)
         .run();
 }
 
+#[derive(Component)]
+pub struct BackgroundEntity;
+
+#[derive(Component)]
+pub struct CrowEntity;
+
+#[derive(Component)]
+pub struct WormEntity;
+
+#[derive(Component)]
+pub struct HawkEntity;
+
+/*
+#[derive(Component)]
+pub struct Active {
+    active: bool,
+}
+*/
+
+/// ## fn setup()
 /// Initializes spawn settings for game sprites,  
 /// such as location and scale  
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -51,7 +74,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             scale: Vec3::new(1.0, 1.0, 1.0),
             ..Default::default()
         },
-        Name::new("Background"),
+        BackgroundEntity,
     ));
     commands.spawn((
         Sprite::from_image(asset_server.load("crowGame_crow.png")),
@@ -60,7 +83,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             scale: Vec3::new(1.0, 1.0, 1.0),
             ..Default::default()
         },
-        Name::new("Crow"),
+        CrowEntity,
     ));
     commands.spawn((
         Sprite::from_image(asset_server.load("crowGame_hawk.png")),
@@ -69,7 +92,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             scale: Vec3::new(1.0, 1.0, 1.0),
             ..Default::default()
         },
-        Name::new("Hawk"),
+        HawkEntity,
     ));
     commands.spawn((
         Sprite::from_image(asset_server.load("crowGame_food.png")),
@@ -78,74 +101,143 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             scale: Vec3::new(1.0, 1.0, 1.0),
             ..Default::default()
         },
-        Name::new("Worm"),
+        WormEntity,
     ));
 }
 
+/// ## fn movement()  
 /// Handles player movement key inputs  
 /// and transforms the crow to move in the requested direction  
-fn movement(input: Res<ButtonInput<KeyCode>>, mut query: Query<(&Name, &mut Transform)>) {
-    for (name, mut transform) in query.iter_mut() {
-        if name.as_str() == "Crow" {
-            if input.pressed(KeyCode::KeyW) || input.pressed(KeyCode::ArrowUp) {
-                transform.rotation = Quat::from_rotation_z(0.0_f32.to_radians());
-                transform.translation.y += 1.
-            } else if input.pressed(KeyCode::KeyA) || input.pressed(KeyCode::ArrowLeft) {
-                transform.rotation = Quat::from_rotation_z(90.0_f32.to_radians());
-                transform.translation.x -= 1.
-            } else if input.pressed(KeyCode::KeyD) || input.pressed(KeyCode::ArrowRight) {
-                transform.rotation = Quat::from_rotation_z(270.0_f32.to_radians());
-                transform.translation.x += 1.
-            } else if input.pressed(KeyCode::KeyS) || input.pressed(KeyCode::ArrowDown) {
-                transform.rotation = Quat::from_rotation_z(180.0_f32.to_radians());
-                transform.translation.y -= 1.
-            }
+fn movement(input: Res<ButtonInput<KeyCode>>, mut query: Query<&mut Transform, With<CrowEntity>>) {
+    for mut transform in query.iter_mut() {
+        if input.pressed(KeyCode::KeyW) || input.pressed(KeyCode::ArrowUp) {
+            transform.rotation = Quat::from_rotation_z(0.0_f32.to_radians());
+            transform.translation.y += 1.
+        } else if input.pressed(KeyCode::KeyA) || input.pressed(KeyCode::ArrowLeft) {
+            transform.rotation = Quat::from_rotation_z(90.0_f32.to_radians());
+            transform.translation.x -= 1.
+        } else if input.pressed(KeyCode::KeyD) || input.pressed(KeyCode::ArrowRight) {
+            transform.rotation = Quat::from_rotation_z(270.0_f32.to_radians());
+            transform.translation.x += 1.
+        } else if input.pressed(KeyCode::KeyS) || input.pressed(KeyCode::ArrowDown) {
+            transform.rotation = Quat::from_rotation_z(180.0_f32.to_radians());
+            transform.translation.y -= 1.
+        }
 
-            if transform.translation.y > ((HEIGHT - 110.0) / 2.0) {
-                transform.translation.y = (HEIGHT - 111.0) / 2.0
-            }
-            if transform.translation.y < ((-HEIGHT + 110.0) / 2.0) {
-                transform.translation.y = (-HEIGHT + 111.0) / 2.0
-            }
-            if transform.translation.x > ((WIDTH - 110.0) / 2.0) {
-                transform.translation.x = (WIDTH - 111.0) / 2.0
-            }
-            if transform.translation.x < ((-WIDTH + 110.0) / 2.0) {
-                transform.translation.x = (-WIDTH + 111.0) / 2.0
-            }
+        if transform.translation.y > ((HEIGHT - 110.0) / 2.0) {
+            transform.translation.y = (HEIGHT - 111.0) / 2.0
+        }
+        if transform.translation.y < ((-HEIGHT + 110.0) / 2.0) {
+            transform.translation.y = (-HEIGHT + 111.0) / 2.0
+        }
+        if transform.translation.x > ((WIDTH - 110.0) / 2.0) {
+            transform.translation.x = (WIDTH - 110.0) / 2.0
+        }
+        if transform.translation.x < ((-WIDTH + 110.0) / 2.0) {
+            transform.translation.x = (-WIDTH + 111.0) / 2.0
         }
     }
 }
 
+/// ## fn collision()  
 /// Handles collision events.  
 /// Such as the player colliding with worms or hawks.  
 /// If a player collides with a worm the score is increased.  
 /// If a player collides with a hawk the game ends.  
-fn collision(mut query: Query<(&Name, &mut Transform)>) {
-    let mut crow_x = 0.;
-    let mut crow_y = 0.;
-    let mut worm_x = 0.;
-    let mut worm_y = 0.;
-    let mut hawk_x = 0.;
-    let mut hawk_y = 0.;
-    for (name, transform) in query.iter_mut() {
-        if name.as_str() == "Crow" {
-            crow_x = transform.translation.x;
-            crow_y = transform.translation.y;
-        } else if name.as_str() == "Worm" {
-            worm_x = transform.translation.x;
-            worm_y = transform.translation.y;
-        } else if name.as_str() == "Hawk" {
-            hawk_x = transform.translation.x;
-            hawk_y = transform.translation.y;
+fn collision(
+    crow_query: Query<&Transform, With<CrowEntity>>,
+    worm_query: Query<&Transform, With<WormEntity>>,
+    hawk_query: Query<&Transform, With<HawkEntity>>,
+) {
+    if let Ok(crow_transform) = crow_query.get_single() {
+        if let Ok(worm_transform) = worm_query.get_single() {
+            if (crow_transform.translation.x - worm_transform.translation.x).abs() <= 30.
+                && (crow_transform.translation.y - worm_transform.translation.y).abs() <= 30.
+            {
+                //println!("Worm");
+            }
+        }
+        if let Ok(hawk_transform) = hawk_query.get_single() {
+            if (crow_transform.translation.x - hawk_transform.translation.x).abs() <= 45.
+                && (crow_transform.translation.y - hawk_transform.translation.y).abs() <= 45.
+            {
+                //println!("Hawk");
+            }
         }
     }
+}
 
-    if (crow_x - worm_x).abs() <= 30. && (crow_y - worm_y).abs() <= 30. {
-        todo!()
+/*
+/// ## fn place_worm()
+/// When the worm is spawned or eaten and a new worm is needed.
+/// This function generates a random number and teleports worm to it.
+fn place_worm(mut query: Query<(&Name, &mut Transform)>) {
+    for (name, mut transform) in query.iter_mut() {
+        if name.as_str() == "Worm" {
+            let mut rng = rand::rng();
+            let x: i32 = rng.random_range(((-WIDTH + 110.) / 2.) as i32 .. ((WIDTH - 110.) / 2.) as i32);
+            let y: i32 = rng.random_range(((-HEIGHT + 110.) / 2.) as i32 .. ((HEIGHT - 110.) / 2.) as i32);
+            transform.translation.x = x as f32;
+            transform.translation.y = y as f32;
+        }
     }
+}
+*/
 
-    if (crow_x - hawk_x).abs() <= 45. && (crow_y - hawk_y).abs() <= 45. {
-        todo!()
+/// ## fn chase_player()
+/// Extracts the player's location (the Crow) and compares it the Hawk's location.  
+/// Then moves Hawk towards the player.  
+fn chase_player(
+    mut query: Query<&mut Transform, (With<HawkEntity>, Without<CrowEntity>)>,
+    player_query: Query<&Transform, With<CrowEntity>>,
+) {
+    if let Ok(c_transform) = player_query.get_single() {
+        for mut transform in query.iter_mut() {
+            if transform.translation.y <= c_transform.translation.y
+                && transform.translation.x == c_transform.translation.x
+            {
+                transform.rotation = Quat::from_rotation_z(0.0_f32.to_radians());
+                transform.translation.y += 1.;
+            } else if transform.translation.x >= c_transform.translation.x
+                && transform.translation.y == c_transform.translation.y
+            {
+                transform.rotation = Quat::from_rotation_z(90.0_f32.to_radians());
+                transform.translation.x -= 1.;
+            } else if transform.translation.x <= c_transform.translation.x
+                && transform.translation.y == c_transform.translation.y
+            {
+                transform.rotation = Quat::from_rotation_z(270.0_f32.to_radians());
+                transform.translation.x += 1.;
+            } else if transform.translation.y >= c_transform.translation.y
+                && transform.translation.x == c_transform.translation.x
+            {
+                transform.rotation = Quat::from_rotation_z(180.0_f32.to_radians());
+                transform.translation.y -= 1.;
+            } else if transform.translation.y <= c_transform.translation.y
+                && transform.translation.x >= c_transform.translation.x
+            {
+                transform.rotation = Quat::from_rotation_z(45.0_f32.to_radians());
+                transform.translation.y += 0.50;
+                transform.translation.x -= 0.50;
+            } else if transform.translation.y < c_transform.translation.y
+                && transform.translation.x < c_transform.translation.x
+            {
+                transform.rotation = Quat::from_rotation_z(315.0_f32.to_radians());
+                transform.translation.y += 0.50;
+                transform.translation.x += 0.50;
+            } else if transform.translation.y > c_transform.translation.y
+                && transform.translation.x > c_transform.translation.x
+            {
+                transform.rotation = Quat::from_rotation_z(135.0_f32.to_radians());
+                transform.translation.y -= 0.50;
+                transform.translation.x -= 0.50;
+            } else if transform.translation.y > c_transform.translation.y
+                && transform.translation.x < c_transform.translation.x
+            {
+                transform.rotation = Quat::from_rotation_z(225.0_f32.to_radians());
+                transform.translation.y -= 0.50;
+                transform.translation.x += 0.50;
+            }
+        }
     }
 }
