@@ -135,7 +135,7 @@ fn movement(
     mut crow_query: Single<(&mut Transform, &mut Active), With<CrowEntity>>,
     mut event_query: Single<&mut Status, With<BackgroundEntity>>,
 ) {
-    if event_query.event_id != 4 {
+    if event_query.event_id != 4 && event_query.event_id != 5 {
         if input.pressed(KeyCode::KeyW)
             || input.pressed(KeyCode::KeyA)
             || input.pressed(KeyCode::KeyD)
@@ -177,6 +177,8 @@ fn movement(
         if crow_query.0.translation.x < ((-WIDTH + 110.0) / 2.0) {
             crow_query.0.translation.x = (-WIDTH + 111.0) / 2.0
         }
+    } else if event_query.event_id == 5 && input.get_pressed().count() == 0 {
+        event_query.event_id = 0;
     }
 }
 
@@ -308,6 +310,8 @@ fn success_check(
 /// 1 = Active  
 /// 2 = Fail Condition
 /// 3 = Success Condition (Credit Sequence Ended)
+/// 4 = Success Condition (Credit Sequence Active)
+/// 5 = Game Over Lock Out
 /// If status 2 or 3 is reported, sprites are reset back to default settings (location, counters, active state)  
 /// and status is set to 0.  
 #[allow(clippy::type_complexity)]
@@ -336,7 +340,11 @@ fn reset(
         ));
     }
     if (event_query.event_id == 2 && crow_query.1.active) || event_query.event_id == 3 {
-        event_query.event_id = 0;
+        if event_query.event_id == 2 {
+            event_query.event_id = 5;
+        } else {
+            event_query.event_id = 0;
+        }
         crow_query.1.active = false;
         crow_query.0.translation = Vec3::new(425., -300., 2.);
         crow_query.0.rotation = Quat::from_rotation_z(0.0_f32.to_radians());
