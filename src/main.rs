@@ -1,6 +1,7 @@
 use bevy::{
     //diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
+    //text::TextWriter,
     window::{PresentMode, Window, WindowPlugin, WindowTheme},
 };
 use rand::Rng;
@@ -9,6 +10,37 @@ use rand::Rng;
 const WIDTH: f32 = 1920.;
 const HEIGHT: f32 = 1080.;
 
+#[derive(Component)]
+pub struct BackgroundEntity;
+
+#[derive(Component)]
+pub struct StatusEntity;
+
+#[derive(Component)]
+pub struct CrowEntity;
+
+#[derive(Component)]
+pub struct WormEntity;
+
+#[derive(Component)]
+pub struct HawkEntity;
+
+#[derive(Component)]
+pub struct Active {
+    active: bool,
+}
+
+#[derive(Component)]
+pub struct Count {
+    count: i32,
+}
+
+#[derive(Component)]
+pub struct Status {
+    event_id: i32,
+}
+
+/// ## fn main() : Begin  
 /// Initializes window settings and starts the game loop  
 fn main() {
     App::new()
@@ -37,42 +69,16 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, movement)
         .add_systems(Update, collision)
-        //.add_systems(Update, despawn_entity)
         .add_systems(Update, place_worm)
         .add_systems(Update, chase_player)
+        .add_systems(Update, success_check)
+        .add_systems(Update, reset)
         .run();
 }
 
-#[derive(Component)]
-pub struct BackgroundEntity;
-
-#[derive(Component)]
-pub struct CrowEntity;
-
-#[derive(Component)]
-pub struct WormEntity;
-
-#[derive(Component)]
-pub struct HawkEntity;
-
-#[derive(Component)]
-pub struct Active {
-    active: bool,
-}
-
-#[derive(Component)]
-pub struct Count {
-    count: i32,
-}
-
-#[derive(Component)]
-pub struct Status {
-    event_id: i32,
-}
-
-/// ## fn setup()
+/// ## fn setup() : Startup  
 /// Initializes spawn settings for game sprites,  
-/// such as location and scale  
+/// such as location, scale, and other default settings   
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     commands.spawn((
@@ -83,7 +89,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..Default::default()
         },
         BackgroundEntity,
-        Status { event_id: 0 },
+        Status { event_id: -1 },
     ));
     commands.spawn((
         Sprite::from_image(asset_server.load("crowGame_crow.png")),
@@ -95,10 +101,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         CrowEntity,
         Active { active: false },
     ));
+
     commands.spawn((
         Sprite::from_image(asset_server.load("crowGame_hawk.png")),
         Transform {
-            translation: Vec3::new(-200., 0., 3.),
+            translation: Vec3::new(0., 0., 3.),
             scale: Vec3::new(1.0, 1.0, 1.0),
             ..Default::default()
         },
@@ -117,30 +124,28 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-/// ## fn movement()  
+/// ## fn movement() : Update  
 /// Handles player movement key inputs  
 /// and transforms the crow to move in the requested direction
-//#[allow(clippy::type_complexity)]
 fn movement(
     input: Res<ButtonInput<KeyCode>>,
     mut query: Query<(&mut Transform, &mut Active), With<CrowEntity>>,
     mut event_query: Query<&mut Status, With<BackgroundEntity>>,
 ) {
     for (mut transform, mut active) in query.iter_mut() {
-        if !active.active
-            && (input.pressed(KeyCode::KeyW)
-                || input.pressed(KeyCode::KeyA)
-                || input.pressed(KeyCode::KeyD)
-                || input.pressed(KeyCode::KeyS)
-                || input.pressed(KeyCode::ArrowUp)
-                || input.pressed(KeyCode::ArrowLeft)
-                || input.pressed(KeyCode::ArrowRight)
-                || input.pressed(KeyCode::ArrowDown))
+        if input.pressed(KeyCode::KeyW)
+            || input.pressed(KeyCode::KeyA)
+            || input.pressed(KeyCode::KeyD)
+            || input.pressed(KeyCode::KeyS)
+            || input.pressed(KeyCode::ArrowUp)
+            || input.pressed(KeyCode::ArrowLeft)
+            || input.pressed(KeyCode::ArrowRight)
+            || input.pressed(KeyCode::ArrowDown)
         {
             active.active = true;
             if let Ok(ref mut stat) = event_query.get_single_mut() {
-                if stat.event_id != 0 {
-                    stat.event_id = 0;
+                if stat.event_id == 0 {
+                    stat.event_id = 1;
                 }
             }
         }
@@ -174,7 +179,7 @@ fn movement(
     }
 }
 
-/// ## fn collision()  
+/// ## fn collision() : Update  
 /// Handles collision events.  
 /// Such as the player colliding with worms or hawks.  
 /// If a player collides with a worm the score is increased.  
@@ -187,6 +192,7 @@ fn collision(
         (With<WormEntity>, Without<CrowEntity>, Without<HawkEntity>),
     >,
     hawk_query: Query<&Transform, With<HawkEntity>>,
+    mut status_query: Single<&mut Status, With<BackgroundEntity>>,
 ) {
     if let Ok(crow_transform) = crow_query.get_single() {
         if let Ok(ref mut worm_transform) = worm_query.get_single_mut() {
@@ -201,13 +207,13 @@ fn collision(
             if (crow_transform.translation.x - hawk_transform.translation.x).abs() <= 45.
                 && (crow_transform.translation.y - hawk_transform.translation.y).abs() <= 45.
             {
-                //println!("Hawk");
+                status_query.event_id = 2;
             }
         }
     }
 }
 
-/// ## fn place_worm()
+/// ## fn place_worm() : Update  
 /// When the worm is spawned or eaten and a new worm is needed.
 /// This function generates a random number and teleports worm to it.
 fn place_worm(mut query: Query<(&mut Transform, &mut Active), With<WormEntity>>) {
@@ -225,7 +231,7 @@ fn place_worm(mut query: Query<(&mut Transform, &mut Active), With<WormEntity>>)
     }
 }
 
-/// ## fn chase_player()
+/// ## fn chase_player() : Update  
 /// Extracts the player's location (the Crow) and compares it the Hawk's location.  
 /// Then moves Hawk towards the player.  
 fn chase_player(
@@ -282,5 +288,42 @@ fn chase_player(
                 }
             }
         }
+    }
+}
+
+/// ## fn success_check() : Update  
+/// Checks if the crow has collected 10 worms.  
+/// If so Status.event_id is set to 3 = success condition  
+fn success_check(
+    worm_query: Single<&Count, With<WormEntity>>,
+    mut status_query: Single<&mut Status, With<BackgroundEntity>>,
+) {
+    if worm_query.count >= 10 {
+        status_query.event_id = 3;
+    }
+}
+
+/// ## fn reset() : Update  
+/// Automatically checks the Status.event_id for event updates  
+/// 0 = Inactive/Reset  
+/// 1 = Active  
+/// 2 = Fail Condition  
+/// 3 = Success Condition  
+/// If status 2 or 3, sprites are reset back default settings (location, counters, active state)  
+/// and status is set to 0.  
+#[allow(clippy::type_complexity)]
+fn reset(
+    mut event_query: Single<&mut Status, With<BackgroundEntity>>,
+    mut crow_query: Single<(&mut Transform, &mut Active), (With<CrowEntity>, Without<HawkEntity>)>,
+    mut worm_query: Single<(&mut Active, &mut Count), (With<WormEntity>, Without<CrowEntity>)>,
+    mut hawk_query: Single<&mut Transform, (With<HawkEntity>, Without<CrowEntity>)>,
+) {
+    if (event_query.event_id == 2 || event_query.event_id == 3) && crow_query.1.active {
+        event_query.event_id = 0;
+        crow_query.1.active = false;
+        crow_query.0.translation = Vec3::new(425., -300., 2.);
+        worm_query.0.active = false;
+        worm_query.1.count = 0;
+        hawk_query.translation = Vec3::new(-200., 0., 3.);
     }
 }
