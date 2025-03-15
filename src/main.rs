@@ -1,7 +1,5 @@
 use bevy::{
-    //diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    //text::TextWriter,
     window::{PresentMode, Window, WindowPlugin, WindowTheme},
 };
 use rand::Rng;
@@ -9,6 +7,9 @@ use rand::Rng;
 // Sets a const global var for the screen size
 const WIDTH: f32 = 1920.;
 const HEIGHT: f32 = 1080.;
+
+// Sets a const global var for target worm count
+const MAXSCORE: i32 = 10;
 
 #[derive(Component)]
 pub struct BackgroundEntity;
@@ -44,28 +45,24 @@ pub struct Status {
 /// Initializes window settings and starts the game loop  
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "A Crow's Commute".into(),
-                    name: Some("bevy.app".into()),
-                    resolution: (WIDTH, HEIGHT).into(),
-                    present_mode: PresentMode::AutoVsync,
-                    fit_canvas_to_parent: true,
-                    prevent_default_event_handling: false,
-                    window_theme: Some(WindowTheme::Dark),
-                    enabled_buttons: bevy::window::EnabledButtons {
-                        maximize: false,
-                        ..Default::default()
-                    },
-                    visible: true,
-                    ..default()
-                }),
+        .add_plugins((DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "A Crow's Commute".into(),
+                name: Some("bevy.app".into()),
+                resolution: (WIDTH, HEIGHT).into(),
+                present_mode: PresentMode::AutoVsync,
+                fit_canvas_to_parent: true,
+                prevent_default_event_handling: false,
+                window_theme: Some(WindowTheme::Dark),
+                enabled_buttons: bevy::window::EnabledButtons {
+                    maximize: false,
+                    ..Default::default()
+                },
+                visible: true,
                 ..default()
             }),
-            //LogDiagnosticsPlugin::default(),
-            //FrameTimeDiagnosticsPlugin::default(),
-        ))
+            ..default()
+        }),))
         .add_systems(Startup, setup)
         .add_systems(Update, movement)
         .add_systems(Update, collision)
@@ -129,53 +126,49 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// and transforms the crow to move in the requested direction
 fn movement(
     input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<(&mut Transform, &mut Active), With<CrowEntity>>,
-    mut event_query: Query<&mut Status, With<BackgroundEntity>>,
+    mut crow_query: Single<(&mut Transform, &mut Active), With<CrowEntity>>,
+    mut event_query: Single<&mut Status, With<BackgroundEntity>>,
 ) {
-    for (mut transform, mut active) in query.iter_mut() {
-        if input.pressed(KeyCode::KeyW)
-            || input.pressed(KeyCode::KeyA)
-            || input.pressed(KeyCode::KeyD)
-            || input.pressed(KeyCode::KeyS)
-            || input.pressed(KeyCode::ArrowUp)
-            || input.pressed(KeyCode::ArrowLeft)
-            || input.pressed(KeyCode::ArrowRight)
-            || input.pressed(KeyCode::ArrowDown)
-        {
-            active.active = true;
-            if let Ok(ref mut stat) = event_query.get_single_mut() {
-                if stat.event_id == 0 {
-                    stat.event_id = 1;
-                }
-            }
+    if input.pressed(KeyCode::KeyW)
+        || input.pressed(KeyCode::KeyA)
+        || input.pressed(KeyCode::KeyD)
+        || input.pressed(KeyCode::KeyS)
+        || input.pressed(KeyCode::ArrowUp)
+        || input.pressed(KeyCode::ArrowLeft)
+        || input.pressed(KeyCode::ArrowRight)
+        || input.pressed(KeyCode::ArrowDown)
+    {
+        crow_query.1.active = true;
+        if event_query.event_id == 0 {
+            event_query.event_id = 1;
         }
+    }
 
-        if input.pressed(KeyCode::KeyW) || input.pressed(KeyCode::ArrowUp) {
-            transform.rotation = Quat::from_rotation_z(0.0_f32.to_radians());
-            transform.translation.y += 1.
-        } else if input.pressed(KeyCode::KeyA) || input.pressed(KeyCode::ArrowLeft) {
-            transform.rotation = Quat::from_rotation_z(90.0_f32.to_radians());
-            transform.translation.x -= 1.
-        } else if input.pressed(KeyCode::KeyD) || input.pressed(KeyCode::ArrowRight) {
-            transform.rotation = Quat::from_rotation_z(270.0_f32.to_radians());
-            transform.translation.x += 1.
-        } else if input.pressed(KeyCode::KeyS) || input.pressed(KeyCode::ArrowDown) {
-            transform.rotation = Quat::from_rotation_z(180.0_f32.to_radians());
-            transform.translation.y -= 1.
-        }
+    if input.pressed(KeyCode::KeyW) || input.pressed(KeyCode::ArrowUp) {
+        crow_query.0.rotation = Quat::from_rotation_z(0.0_f32.to_radians());
+        crow_query.0.translation.y += 1.
+    } else if input.pressed(KeyCode::KeyA) || input.pressed(KeyCode::ArrowLeft) {
+        crow_query.0.rotation = Quat::from_rotation_z(90.0_f32.to_radians());
+        crow_query.0.translation.x -= 1.
+    } else if input.pressed(KeyCode::KeyD) || input.pressed(KeyCode::ArrowRight) {
+        crow_query.0.rotation = Quat::from_rotation_z(270.0_f32.to_radians());
+        crow_query.0.translation.x += 1.
+    } else if input.pressed(KeyCode::KeyS) || input.pressed(KeyCode::ArrowDown) {
+        crow_query.0.rotation = Quat::from_rotation_z(180.0_f32.to_radians());
+        crow_query.0.translation.y -= 1.
+    }
 
-        if transform.translation.y > ((HEIGHT - 110.0) / 2.0) {
-            transform.translation.y = (HEIGHT - 111.0) / 2.0
-        }
-        if transform.translation.y < ((-HEIGHT + 110.0) / 2.0) {
-            transform.translation.y = (-HEIGHT + 111.0) / 2.0
-        }
-        if transform.translation.x > ((WIDTH - 110.0) / 2.0) {
-            transform.translation.x = (WIDTH - 110.0) / 2.0
-        }
-        if transform.translation.x < ((-WIDTH + 110.0) / 2.0) {
-            transform.translation.x = (-WIDTH + 111.0) / 2.0
-        }
+    if crow_query.0.translation.y > ((HEIGHT - 110.0) / 2.0) {
+        crow_query.0.translation.y = (HEIGHT - 111.0) / 2.0
+    }
+    if crow_query.0.translation.y < ((-HEIGHT + 110.0) / 2.0) {
+        crow_query.0.translation.y = (-HEIGHT + 111.0) / 2.0
+    }
+    if crow_query.0.translation.x > ((WIDTH - 110.0) / 2.0) {
+        crow_query.0.translation.x = (WIDTH - 110.0) / 2.0
+    }
+    if crow_query.0.translation.x < ((-WIDTH + 110.0) / 2.0) {
+        crow_query.0.translation.x = (-WIDTH + 111.0) / 2.0
     }
 }
 
@@ -186,48 +179,39 @@ fn movement(
 /// If a player collides with a hawk the game ends.  
 #[allow(clippy::type_complexity)]
 fn collision(
-    crow_query: Query<&Transform, With<CrowEntity>>,
-    mut worm_query: Query<
+    crow_query: Single<&Transform, With<CrowEntity>>,
+    mut worm_query: Single<
         (&mut Transform, &mut Active, &mut Count),
         (With<WormEntity>, Without<CrowEntity>, Without<HawkEntity>),
     >,
-    hawk_query: Query<&Transform, With<HawkEntity>>,
+    hawk_query: Single<&Transform, With<HawkEntity>>,
     mut status_query: Single<&mut Status, With<BackgroundEntity>>,
 ) {
-    if let Ok(crow_transform) = crow_query.get_single() {
-        if let Ok(ref mut worm_transform) = worm_query.get_single_mut() {
-            if (crow_transform.translation.x - worm_transform.0.translation.x).abs() <= 30.
-                && (crow_transform.translation.y - worm_transform.0.translation.y).abs() <= 30.
-            {
-                worm_transform.1.active = false;
-                worm_transform.2.count += 1;
-            }
-        }
-        if let Ok(hawk_transform) = hawk_query.get_single() {
-            if (crow_transform.translation.x - hawk_transform.translation.x).abs() <= 45.
-                && (crow_transform.translation.y - hawk_transform.translation.y).abs() <= 45.
-            {
-                status_query.event_id = 2;
-            }
-        }
+    if (crow_query.translation.x - worm_query.0.translation.x).abs() <= 30.
+        && (crow_query.translation.y - worm_query.0.translation.y).abs() <= 30.
+    {
+        worm_query.1.active = false;
+        worm_query.2.count += 1;
+    }
+    if (crow_query.translation.x - hawk_query.translation.x).abs() <= 45.
+        && (crow_query.translation.y - hawk_query.translation.y).abs() <= 45.
+    {
+        status_query.event_id = 2;
     }
 }
 
 /// ## fn place_worm() : Update  
 /// When the worm is spawned or eaten and a new worm is needed.
 /// This function generates a random number and teleports worm to it.
-fn place_worm(mut query: Query<(&mut Transform, &mut Active), With<WormEntity>>) {
-    for (mut transform, mut active) in query.iter_mut() {
-        if !active.active {
-            let mut rng = rand::rng();
-            let x: i32 =
-                rng.random_range(((-WIDTH + 110.) / 2.) as i32..((WIDTH - 110.) / 2.) as i32);
-            let y: i32 =
-                rng.random_range(((-HEIGHT + 110.) / 2.) as i32..((HEIGHT - 110.) / 2.) as i32);
-            transform.translation.x = x as f32;
-            transform.translation.y = y as f32;
-            active.active = true;
-        }
+fn place_worm(mut query: Single<(&mut Transform, &mut Active), With<WormEntity>>) {
+    if !query.1.active {
+        let mut rng = rand::rng();
+        let x: i32 = rng.random_range(((-WIDTH + 110.) / 2.) as i32..((WIDTH - 110.) / 2.) as i32);
+        let y: i32 =
+            rng.random_range(((-HEIGHT + 110.) / 2.) as i32..((HEIGHT - 110.) / 2.) as i32);
+        query.0.translation.x = x as f32;
+        query.0.translation.y = y as f32;
+        query.1.active = true;
     }
 }
 
@@ -235,58 +219,54 @@ fn place_worm(mut query: Query<(&mut Transform, &mut Active), With<WormEntity>>)
 /// Extracts the player's location (the Crow) and compares it the Hawk's location.  
 /// Then moves Hawk towards the player.  
 fn chase_player(
-    mut query: Query<&mut Transform, (With<HawkEntity>, Without<CrowEntity>)>,
-    player_query: Query<(&Transform, &Active), With<CrowEntity>>,
+    mut hawk_query: Single<&mut Transform, (With<HawkEntity>, Without<CrowEntity>)>,
+    crow_query: Single<(&Transform, &Active), With<CrowEntity>>,
 ) {
-    if let Ok(c_transform) = player_query.get_single() {
-        if c_transform.1.active {
-            for mut transform in query.iter_mut() {
-                if transform.translation.y <= c_transform.0.translation.y
-                    && transform.translation.x == c_transform.0.translation.x
-                {
-                    transform.rotation = Quat::from_rotation_z(0.0_f32.to_radians());
-                    transform.translation.y += 0.5;
-                } else if transform.translation.x >= c_transform.0.translation.x
-                    && transform.translation.y == c_transform.0.translation.y
-                {
-                    transform.rotation = Quat::from_rotation_z(90.0_f32.to_radians());
-                    transform.translation.x -= 0.5;
-                } else if transform.translation.x <= c_transform.0.translation.x
-                    && transform.translation.y == c_transform.0.translation.y
-                {
-                    transform.rotation = Quat::from_rotation_z(270.0_f32.to_radians());
-                    transform.translation.x += 0.5;
-                } else if transform.translation.y >= c_transform.0.translation.y
-                    && transform.translation.x == c_transform.0.translation.x
-                {
-                    transform.rotation = Quat::from_rotation_z(180.0_f32.to_radians());
-                    transform.translation.y -= 0.5;
-                } else if transform.translation.y <= c_transform.0.translation.y
-                    && transform.translation.x >= c_transform.0.translation.x
-                {
-                    transform.rotation = Quat::from_rotation_z(45.0_f32.to_radians());
-                    transform.translation.y += 0.50;
-                    transform.translation.x -= 0.50;
-                } else if transform.translation.y < c_transform.0.translation.y
-                    && transform.translation.x < c_transform.0.translation.x
-                {
-                    transform.rotation = Quat::from_rotation_z(315.0_f32.to_radians());
-                    transform.translation.y += 0.50;
-                    transform.translation.x += 0.50;
-                } else if transform.translation.y > c_transform.0.translation.y
-                    && transform.translation.x > c_transform.0.translation.x
-                {
-                    transform.rotation = Quat::from_rotation_z(135.0_f32.to_radians());
-                    transform.translation.y -= 0.50;
-                    transform.translation.x -= 0.50;
-                } else if transform.translation.y > c_transform.0.translation.y
-                    && transform.translation.x < c_transform.0.translation.x
-                {
-                    transform.rotation = Quat::from_rotation_z(225.0_f32.to_radians());
-                    transform.translation.y -= 0.50;
-                    transform.translation.x += 0.50;
-                }
-            }
+    if crow_query.1.active {
+        if hawk_query.translation.y <= crow_query.0.translation.y
+            && hawk_query.translation.x == crow_query.0.translation.x
+        {
+            hawk_query.rotation = Quat::from_rotation_z(0.0_f32.to_radians());
+            hawk_query.translation.y += 0.5;
+        } else if hawk_query.translation.x >= crow_query.0.translation.x
+            && hawk_query.translation.y == crow_query.0.translation.y
+        {
+            hawk_query.rotation = Quat::from_rotation_z(90.0_f32.to_radians());
+            hawk_query.translation.x -= 0.5;
+        } else if hawk_query.translation.x <= crow_query.0.translation.x
+            && hawk_query.translation.y == crow_query.0.translation.y
+        {
+            hawk_query.rotation = Quat::from_rotation_z(270.0_f32.to_radians());
+            hawk_query.translation.x += 0.5;
+        } else if hawk_query.translation.y >= crow_query.0.translation.y
+            && hawk_query.translation.x == crow_query.0.translation.x
+        {
+            hawk_query.rotation = Quat::from_rotation_z(180.0_f32.to_radians());
+            hawk_query.translation.y -= 0.5;
+        } else if hawk_query.translation.y <= crow_query.0.translation.y
+            && hawk_query.translation.x >= crow_query.0.translation.x
+        {
+            hawk_query.rotation = Quat::from_rotation_z(45.0_f32.to_radians());
+            hawk_query.translation.y += 0.50;
+            hawk_query.translation.x -= 0.50;
+        } else if hawk_query.translation.y < crow_query.0.translation.y
+            && hawk_query.translation.x < crow_query.0.translation.x
+        {
+            hawk_query.rotation = Quat::from_rotation_z(315.0_f32.to_radians());
+            hawk_query.translation.y += 0.50;
+            hawk_query.translation.x += 0.50;
+        } else if hawk_query.translation.y > crow_query.0.translation.y
+            && hawk_query.translation.x > crow_query.0.translation.x
+        {
+            hawk_query.rotation = Quat::from_rotation_z(135.0_f32.to_radians());
+            hawk_query.translation.y -= 0.50;
+            hawk_query.translation.x -= 0.50;
+        } else if hawk_query.translation.y > crow_query.0.translation.y
+            && hawk_query.translation.x < crow_query.0.translation.x
+        {
+            hawk_query.rotation = Quat::from_rotation_z(225.0_f32.to_radians());
+            hawk_query.translation.y -= 0.50;
+            hawk_query.translation.x += 0.50;
         }
     }
 }
@@ -298,7 +278,7 @@ fn success_check(
     worm_query: Single<&Count, With<WormEntity>>,
     mut status_query: Single<&mut Status, With<BackgroundEntity>>,
 ) {
-    if worm_query.count >= 10 {
+    if worm_query.count >= MAXSCORE {
         status_query.event_id = 3;
     }
 }
@@ -324,6 +304,6 @@ fn reset(
         crow_query.0.translation = Vec3::new(425., -300., 2.);
         worm_query.0.active = false;
         worm_query.1.count = 0;
-        hawk_query.translation = Vec3::new(-200., 0., 3.);
+        hawk_query.translation = Vec3::new(0., 0., 3.);
     }
 }
