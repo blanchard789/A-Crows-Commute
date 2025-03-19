@@ -3,9 +3,9 @@
 Hayden Blanchard
 
 ## Description:
-A Crow's Commute is a simple 2D game built in Rust using the Bevy crate. The game is inspired by the way that crows will nest together in large groups during winter, often in the urban center of cities. While these crows will spend the night together they are often more secluded in the day hours, commuting into the city in search for food either by themselves or in smaller groups. When deciding what to do for this project, I thought that this behavior in crows was interesting and something I wanted to base my game around. 
+A Crow's Commute is a simple 2D game built in Rust using the Bevy crate. The game is inspired by the way that crows will nest together in large groups during winter, often in the urban center of cities. While these crows will spend the night together they are often more secluded in the day hours, commuting throughout the city in search for food either by themselves or in smaller groups. When deciding what to do for this project, I thought that this behavior in crows was interesting and something I wanted to base my game around. 
 
-The goal of the game is simple: fly the 2D crow over the city and look for 10 worms, while avoiding the hawk who follows you.
+The goal of the game is simple: fly the 2D crow over the city and look for 10 worms, while avoiding the hawk who follows you. The game will automatically reset if the player either collides with the hawk or collects 10 worms, so consecutive attempts are possible.
 
 ## Building program:
 `cargo run --release`  
@@ -30,7 +30,7 @@ Like most first time experiences, starting the project was slow and not without 
 
 I don’t really have anything bad to say about this project. I am happy with the results and see it more as a complete prototype, so with that mindset I see it as a success. Of course like with many first attempts or really any project there are things you wished you did differently or wish you had more time for. But overall I think this was a good project to learn Rust and Bevy with, and I had a lot of fun doing it.
 
-If I had more time to improve this project more. I would start with adding in the originally planned 3D obstacles that need to be avoided. I think the hawk chasing the crow is a good start, but at times the game can feel too easy and I think other obstacles would be a nice touch. I would also add a pause and settings menu, but I never planned for this to begin with given the time scale for this project.
+If I had more time to improve this project. I would start with adding in the originally planned 3D obstacles that need to be avoided. I think the hawk chasing the crow is a good start, but at times the game can feel too easy and I think other obstacles would be a nice touch. I would also add a pause and settings menu, but I never planned for this to begin with given the time scale for this project. Another thing I might add is a text element that displays the current count of collected worms.
 
 
 ## License: [LICENSE](LICENSE)

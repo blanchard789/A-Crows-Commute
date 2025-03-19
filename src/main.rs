@@ -5,41 +5,51 @@ use bevy::{
 };
 use rand::Rng;
 
-// Sets a const global var for the screen size
+/// Sets a const global var for the screen width
 const WIDTH: f32 = 1920.;
+/// Sets a const global var for the screen height
 const HEIGHT: f32 = 1080.;
 
-// Sets a const global var for target worm count
+/// Sets a const global var for target worm count
 const MAXSCORE: i32 = 10;
 
+/// Tag for tracking background entity
 #[derive(Component)]
 pub struct BackgroundEntity;
 
+/// Tag for tracking status entity
 #[derive(Component)]
 pub struct StatusEntity;
 
+/// Tag for tracking crow(player) entity
 #[derive(Component)]
 pub struct CrowEntity;
 
+/// Tag for tracking worm entity
 #[derive(Component)]
 pub struct WormEntity;
 
+/// Tag for tracking hawk entity
 #[derive(Component)]
 pub struct HawkEntity;
 
+/// Tag for tracking text entities
 #[derive(Component)]
 pub struct TextEntity;
 
+/// Boolean for checking if entities are in an active state
 #[derive(Component)]
 pub struct Active {
     active: bool,
 }
 
+/// Integer for worm collection count checks
 #[derive(Component)]
 pub struct Count {
     count: i32,
 }
 
+/// Integer for tracking the current game status id
 #[derive(Component)]
 pub struct Status {
     event_id: i32,
@@ -83,7 +93,10 @@ fn main() {
 /// Initializes spawn settings for game sprites,  
 /// such as location, scale, and other default settings   
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    // spawns camera
     commands.spawn(Camera2d);
+
+    // spawns background image
     commands.spawn((
         Sprite::from_image(asset_server.load("crowGame_downtown.png")),
         Transform {
@@ -94,6 +107,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         BackgroundEntity,
         Status { event_id: -1 },
     ));
+
+    // spawns crow sprite
     commands.spawn((
         Sprite::from_image(asset_server.load("crowGame_crow.png")),
         Transform {
@@ -105,6 +120,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Active { active: false },
     ));
 
+    // spawns hawk sprite
     commands.spawn((
         Sprite::from_image(asset_server.load("crowGame_hawk.png")),
         Transform {
@@ -114,6 +130,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         HawkEntity,
     ));
+
+    // spawns worm sprite
     commands.spawn((
         Sprite::from_image(asset_server.load("crowGame_food.png")),
         Transform {
@@ -128,14 +146,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 /// ## fn movement() : Update  
-/// Handles player movement key inputs  
-/// and transforms the crow to move in the requested direction
+/// Handles player movement key inputs and transforms the crow to move in the requested direction.  
+/// Movement requests will be ignored if requested direction would overflow the screen.  
+/// Function is locked out if Status.event_id == 4 (credit sequence is active) or 5 (game over lock out).  
+/// If event_id == 5 the game over lockout will remain until all movement keys are depressed.
 fn movement(
     input: Res<ButtonInput<KeyCode>>,
     mut crow_query: Single<(&mut Transform, &mut Active), With<CrowEntity>>,
     mut event_query: Single<&mut Status, With<BackgroundEntity>>,
 ) {
+    // checks if movement is currently allowed
     if event_query.event_id != 4 && event_query.event_id != 5 {
+        // checks if any movement keys are pressed and updates crow to be active if not already,
+        // which will start the current game instance.
         if input.pressed(KeyCode::KeyW)
             || input.pressed(KeyCode::KeyA)
             || input.pressed(KeyCode::KeyD)
@@ -151,6 +174,7 @@ fn movement(
             }
         }
 
+        // checks if movement keys are pressed and moves the player as requested
         if input.pressed(KeyCode::KeyW) || input.pressed(KeyCode::ArrowUp) {
             crow_query.0.rotation = Quat::from_rotation_z(0.0_f32.to_radians());
             crow_query.0.translation.y += 1.
@@ -165,6 +189,7 @@ fn movement(
             crow_query.0.translation.y -= 1.
         }
 
+        // checks if requested movement overflows the screen and will blocks it if so.
         if crow_query.0.translation.y > ((HEIGHT - 110.0) / 2.0) {
             crow_query.0.translation.y = (HEIGHT - 111.0) / 2.0
         }
@@ -177,6 +202,7 @@ fn movement(
         if crow_query.0.translation.x < ((-WIDTH + 110.0) / 2.0) {
             crow_query.0.translation.x = (-WIDTH + 111.0) / 2.0
         }
+    // checks for when all keys are depressed during a game over lock, if so game over lock out is removed.
     } else if event_query.event_id == 5 && input.get_pressed().count() == 0 {
         event_query.event_id = 0;
     }
@@ -184,9 +210,10 @@ fn movement(
 
 /// ## fn collision() : Update  
 /// Handles collision events.  
-/// Such as the player colliding with worms or hawks.  
+/// Such as the player colliding with the worm or hawk.  
 /// If a player collides with a worm the score is increased.  
 /// If a player collides with a hawk the game ends.  
+/// Function also reports Status.event_id = 2 if the hawk collides with the player.
 #[allow(clippy::type_complexity)]
 fn collision(
     crow_query: Single<&Transform, With<CrowEntity>>,
@@ -197,12 +224,14 @@ fn collision(
     hawk_query: Single<&Transform, With<HawkEntity>>,
     mut status_query: Single<&mut Status, With<BackgroundEntity>>,
 ) {
+    // checks if crow collides with worm.
     if (crow_query.translation.x - worm_query.0.translation.x).abs() <= 30.
         && (crow_query.translation.y - worm_query.0.translation.y).abs() <= 30.
     {
         worm_query.1.active = false;
         worm_query.2.count += 1;
     }
+    // checks if crow collides with hawk.
     if (crow_query.translation.x - hawk_query.translation.x).abs() <= 45.
         && (crow_query.translation.y - hawk_query.translation.y).abs() <= 45.
     {
@@ -211,13 +240,16 @@ fn collision(
 }
 
 /// ## fn place_worm() : Update  
-/// When the worm is spawned or eaten and a new worm is needed.
-/// This function generates a random number and teleports worm to it.
+/// When a new worm is needed, this function generates a random number and teleports the worm to it.  
+/// The function will be locked out if the credit sequence (Status.event_id == 4) is active.  
+/// The 10th worm has a scripted spawn location for the credit sequence, but the other 9 are random.
 fn place_worm(
     mut query: Single<(&mut Transform, &mut Active, &Count), With<WormEntity>>,
     status_query: Single<&Status, With<BackgroundEntity>>,
 ) {
+    // checks if worm needs to be respawned and if credit sequence is not playing.
     if !query.1.active && status_query.event_id != 4 {
+        // checks if less than 10 worms have been collected.
         if query.2.count < MAXSCORE - 1 {
             let mut rng = rand::rng();
             let x: i32 =
@@ -227,6 +259,7 @@ fn place_worm(
             query.0.translation.x = x as f32;
             query.0.translation.y = y as f32;
             query.1.active = true;
+        // else the 10th worm will be spawned at scripted location.
         } else {
             query.0.translation.x = (-WIDTH / 2.) + 100.;
             query.0.translation.y = -300.;
@@ -236,13 +269,18 @@ fn place_worm(
 }
 
 /// ## fn chase_player() : Update  
-/// Extracts the player's location (the Crow) and compares it the Hawk's location.  
-/// Then moves Hawk towards the player.  
+/// Extracts the player's location (the Crow) and compares it the Hawk's location,  
+/// then moves Hawk towards the player.  
+/// If the hawk is both vertically and horizontally not parallel with the crow,  
+/// the hawk moves slightly faster until one or both axes are in line with the crow.  
+/// This allows the hawk to catch up to the crow a bit, if they are far apart.
 fn chase_player(
     mut hawk_query: Single<&mut Transform, (With<HawkEntity>, Without<CrowEntity>)>,
     crow_query: Single<(&Transform, &Active), With<CrowEntity>>,
 ) {
+    // checks if the crow is currently active
     if crow_query.1.active {
+        // calculates path to crow and moves hawk accordingly.
         if hawk_query.translation.y <= crow_query.0.translation.y
             && hawk_query.translation.x == crow_query.0.translation.x
         {
@@ -293,11 +331,12 @@ fn chase_player(
 
 /// ## fn success_check() : Update  
 /// Checks if the crow has collected 10 worms.  
-/// If so Status.event_id is set to 3 = success condition  
+/// If so Status.event_id is set to 4 (success condition credit sequence active)  
 fn success_check(
     mut worm_query: Single<&mut Count, With<WormEntity>>,
     mut status_query: Single<&mut Status, With<BackgroundEntity>>,
 ) {
+    // checks for when the player has collected 10 worms.
     if worm_query.count >= MAXSCORE {
         status_query.event_id = 4;
         worm_query.count = 0;
@@ -308,12 +347,12 @@ fn success_check(
 /// Automatically checks the Status.event_id for event updates  
 /// 0 = Inactive/Reset  
 /// 1 = Active  
-/// 2 = Fail Condition
-/// 3 = Success Condition (Credit Sequence Ended)
-/// 4 = Success Condition (Credit Sequence Active)
-/// 5 = Game Over Lock Out
+/// 2 = Fail Condition  
+/// 3 = Success Condition (Credit Sequence Ended)  
+/// 4 = Success Condition (Credit Sequence Active)  
+/// 5 = Game Over Lock Out  
 /// If status 2 or 3 is reported, sprites are reset back to default settings (location, counters, active state)  
-/// and status is set to 0.  
+/// and status is set to either 0 (inactive) or 5 (game over lock out)  
 #[allow(clippy::type_complexity)]
 fn reset(
     mut commands: Commands,
@@ -322,6 +361,8 @@ fn reset(
     mut worm_query: Single<(&mut Active, &mut Count), (With<WormEntity>, Without<CrowEntity>)>,
     mut hawk_query: Single<&mut Transform, (With<HawkEntity>, Without<CrowEntity>)>,
 ) {
+    // checks for event_id == 2 (loss condition)
+    // if true, spawns game_over text entitity.
     if event_query.event_id == 2 {
         commands.spawn((
             Text::new("GAME OVER"),
@@ -339,12 +380,16 @@ fn reset(
             TextEntity,
         ));
     }
+    // checks for event_id 2 (loss condition) or 3 (success credit sequence ended).
     if (event_query.event_id == 2 && crow_query.1.active) || event_query.event_id == 3 {
+        // checks if it was a loss, sets event_id to 5 (game over lockout).
         if event_query.event_id == 2 {
             event_query.event_id = 5;
+        // else sets event_id to 0 (inactive/reset).
         } else {
             event_query.event_id = 0;
         }
+        // resets sprites and counters to default.
         crow_query.1.active = false;
         crow_query.0.translation = Vec3::new(425., -300., 2.);
         crow_query.0.rotation = Quat::from_rotation_z(0.0_f32.to_radians());
@@ -355,15 +400,17 @@ fn reset(
     }
 }
 
-// ## fn despawn_text() : Update
-// Despawns game over and credit text entities
-// if still alive when the player moves and starts a new game
+/// ## fn despawn_text() : Update  
+/// Despawns game over and credit text entities  
+/// if still alive when the player moves starting a new game
 fn despawn_text(
     mut commands: Commands,
     status_query: Single<&Status, With<BackgroundEntity>>,
     text_query: Query<Entity, With<TextEntity>>,
 ) {
+    // checks for Status.event_id == 1 (active).
     if status_query.event_id == 1 {
+        // despawns any text entities.
         for entity in text_query.iter() {
             commands.entity(entity).despawn();
         }
@@ -371,7 +418,8 @@ fn despawn_text(
 }
 
 /// ## fn success_sequence() : Update  
-/// Plays a quick credit sequence, once 10 worms are collected
+/// Plays a quick credit sequence, once 10 worms are collected.  
+/// Then sets Status.event_id to 3 (credit sequence ended).
 #[allow(clippy::type_complexity)]
 fn success_sequence(
     mut commands: Commands,
@@ -389,6 +437,9 @@ fn success_sequence(
     >,
     mut status_query: Single<&mut Status, With<BackgroundEntity>>,
 ) {
+    // checks if Status.event_id == 4 (success credit sequence) and if crow is active.
+    // this means that the credit sequence is called but not yet started.
+    // Spawns credit text.
     if status_query.event_id == 4 && crow_query.1.active {
         crow_query.1.active = false;
         worm_query.translation.x = 2000.;
@@ -424,6 +475,10 @@ fn success_sequence(
             },
             TextEntity,
         ));
+    // checks if credit sequence is active and crow is inactive.
+    // this means that the credit sequence is active and the credit text is already spawned.
+    // Then Moves player toward credit text, until it reaches the park with the other crows.
+    // Then event_id is set to 3 (success credit sequence ended).
     } else if status_query.event_id == 4 && !crow_query.1.active {
         if crow_query.0.translation.x < 425. {
             crow_query.0.translation.x += 1.;
